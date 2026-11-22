@@ -1,16 +1,16 @@
-<p align="center"><img src="Resources/AppIcon.png" width="160" alt="Technoduck icon"></p>
+<p align="center"><img src="Resources/AppIcon.png" width="160" alt="Techno Goose icon"></p>
 
-# Technoduck
+# Techno Goose
 
 A native macOS file-transfer client written in Swift and SwiftUI, with a local folder and a server folder side by side.
 
 **Protocols:** SFTP, FTP, FTPS, WebDAV (HTTP/HTTPS) and local disk.
 
-**Website:** [gerbenhoogendam.github.io/technoduck](https://gerbenhoogendam.github.io/technoduck/) (source in `docs/`).
+**Website:** [gerbenhoogendam.github.io/technogoose](https://gerbenhoogendam.github.io/technogoose/) (source in `docs/`).
 
 ## Download
 
-**[Download Technoduck for Mac](https://github.com/gerbenhoogendam/technoduck/releases/latest)**: a universal app for Apple silicon and Intel Macs with macOS 14 or later, signed and notarised by Apple. Unzip it and move Technoduck to your Applications folder.
+**[Download Techno Goose for Mac](https://github.com/gerbenhoogendam/technogoose/releases/latest)**: a universal app for Apple silicon and Intel Macs with macOS 14 or later, signed and notarised by Apple. Unzip it and move Techno Goose to your Applications folder.
 
 ## Features
 
@@ -41,8 +41,8 @@ Passwords are stored in the macOS Keychain. SFTP uses the system `sftp` (your SS
 Requires macOS 14 or later and Swift 5.9 or later.
 
 ```sh
-./build-app.sh                       # builds Technoduck.app
-NOTARY_PROFILE=<profile> ./release.sh  # universal, signed and notarised: Technoduck-<version>.zip
+./build-app.sh                       # builds Techno Goose.app
+NOTARY_PROFILE=<profile> ./release.sh  # universal, signed and notarised: TechnoGoose-<version>.zip
 .build/release/Technoduck --self-test
 ```
 

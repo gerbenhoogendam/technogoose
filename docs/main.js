@@ -1,4 +1,4 @@
-// Scroll-linked motion for the Technoduck site. Only transform and opacity change per frame.
+// Scroll-linked motion for the Techno Goose site. Only transform and opacity change per frame.
 // [data-depth]: parallax offset relative to the viewport centre. [data-scene]: a tall section with a sticky stage,
 // driven by its scroll progress p (0 at the top, 1 when its stage is about to scroll away).
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;

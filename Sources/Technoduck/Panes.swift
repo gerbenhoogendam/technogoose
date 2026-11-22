@@ -79,7 +79,7 @@ struct RootView: View {
         }
         .sheet(item: $editing) { b in ConnectionSheet(bookmark: b).themed(store.theme).grayscale(store.theme.grayscale) }
         .sheet(item: $store.plan) { p in SyncPlanSheet(plan: p).themed(store.theme).grayscale(store.theme.grayscale) }
-        .navigationTitle("Technoduck")
+        .navigationTitle("Techno Goose")
         .navigationSubtitle(store.active?.title ?? "")
     }
 }
@@ -377,7 +377,7 @@ struct PaneView: View {
     }
 }
 
-/// Reads what was dropped: file URLs (Finder, or a pane on this Mac) and Technoduck references (server panes, pane grips).
+/// Reads what was dropped: file URLs (Finder, or a pane on this Mac) and Techno Goose references (server panes, pane grips).
 func loadDrop(_ providers: [NSItemProvider]) async -> (urls: [URL], refs: [String]) {
     var urls: [URL] = [], refs: [String] = []
     for p in providers {

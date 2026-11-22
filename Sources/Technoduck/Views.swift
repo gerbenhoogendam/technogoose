@@ -123,7 +123,7 @@ struct SyncPlanSheet: View {
             }
             Text(store.rules.summary(mode)).themedFont(.caption).foregroundStyle(.secondary)
             if let pp = store.planPanes, let b = store.pairable(pp.0, pp.1) {
-                Toggle("Keep uploading changes from this Mac to \(b.title) while Technoduck is open",
+                Toggle("Keep uploading changes from this Mac to \(b.title) while Techno Goose is open",
                        isOn: Binding(get: { store.autoSyncOn(pp.0, pp.1) }, set: { store.setAutoSync($0, pp.0, pp.1) }))
                     .themedFont(.callout)
             }

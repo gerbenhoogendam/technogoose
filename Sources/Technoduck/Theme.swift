@@ -2,7 +2,7 @@ import AppKit
 import CoreImage
 import SwiftUI
 
-/// The home folder. `TECHNODUCK_HOME` moves it, and all of Technoduck's data with it, for demos and screenshots.
+/// The home folder. `TECHNODUCK_HOME` moves it, and all of the app's data with it, for demos and screenshots.
 let homeDir = ProcessInfo.processInfo.environment["TECHNODUCK_HOME"] ?? NSHomeDirectory()
 let isDemo = ProcessInfo.processInfo.environment["TECHNODUCK_HOME"] != nil
 

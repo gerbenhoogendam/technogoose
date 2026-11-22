@@ -222,7 +222,7 @@ func fmtBytes(_ n: Int64) -> String { ByteCountFormatter.string(fromByteCount: n
 
 /// Passwords live in the login Keychain, never in the bookmarks file.
 enum Keychain {
-    // "Ferry" is the app's name before the rename; still read so saved passwords keep working.
+    // Earlier names of the app (Techno Goose was Technoduck, before that Ferry): passwords stay saved under them.
     private static let services = ["Technoduck", "Ferry"]
     private static func query(_ b: Bookmark, _ service: String = services[0]) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: b.id.uuidString]

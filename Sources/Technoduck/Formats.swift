@@ -356,9 +356,9 @@ func binaryDetails(old: Data?, new: Data) -> FileDetails {
               DetailRow(name: "Fingerprint (SHA-256)", old: old.map(hash), new: hash(new))]
     if let old {
         let first = zip(old, new).enumerated().first { $0.element.0 != $0.element.1 }?.offset ?? min(old.count, new.count)
-        d.note = "Not text or a format Technoduck can show, so it compares the bytes: they start to differ at byte \(first.formatted())."
+        d.note = "Not text or a format Techno Goose can show, so it compares the bytes: they start to differ at byte \(first.formatted())."
     } else {
-        d.note = "Not text or a format Technoduck can show. A new file of \(fmtBytes(Int64(new.count)))."
+        d.note = "Not text or a format Techno Goose can show. A new file of \(fmtBytes(Int64(new.count)))."
     }
     return d
 }

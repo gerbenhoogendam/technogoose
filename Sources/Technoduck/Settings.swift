@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Technoduck › Settings… (⌘,).
+/// Techno Goose › Settings… (⌘,).
 struct SettingsView: View {
     @Environment(Store.self) private var store
     @State private var backupSize: Int64?
@@ -109,7 +109,7 @@ enum AppIcon: String, CaseIterable, Identifiable {
         NSImage(contentsOf: resourceURL(i.rawValue, "png", in: "Icons")).map { (i, $0) }
     })
     var image: NSImage? { Self.images[self] }
-    /// Shows this icon in the Dock and the app switcher while Technoduck runs; nil brings back the .app's own icon.
+    /// Shows this icon in the Dock and the app switcher while Techno Goose runs; nil brings back the .app's own icon.
     @MainActor func apply() { NSApp.applicationIconImage = self == .goggles ? nil : image }
 }
 
@@ -138,7 +138,7 @@ private struct IconPicker: View {
                         .accessibilityAddTraits(on ? .isSelected : [])
                     }
                 }
-                Text("The duck in the Dock and the app switcher while Technoduck runs. Finder and a closed Dock icon keep Goggles.")
+                Text("The icon in the Dock and the app switcher while Techno Goose runs. Finder and a closed Dock icon keep Goggles.")
                     .themedFont(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             .padding(20)

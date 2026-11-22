@@ -95,7 +95,7 @@ import UniformTypeIdentifiers
     var theme = Theme(rawValue: ProcessInfo.processInfo.environment["TECHNODUCK_THEME"] ?? UserDefaults.standard.string(forKey: "theme") ?? "") ?? .system {
         didSet { if !isDemo { UserDefaults.standard.set(theme.rawValue, forKey: "theme") } }
     }
-    // Settings (Technoduck › Settings…).
+    // Settings (Techno Goose › Settings…).
     var folderSizes = UserDefaults.standard.object(forKey: "folderSizes") as? Bool ?? true {
         didSet { UserDefaults.standard.set(folderSizes, forKey: "folderSizes"); Task { await refreshAll() } }  // Pane.measure reads the key
     }
@@ -108,6 +108,7 @@ import UniformTypeIdentifiers
     }
 
     private static let support = URL(fileURLWithPath: homeDir).appendingPathComponent("Library/Application Support")
+    // Folders keep the app's earlier name, Technoduck, so bookmarks, undo backups and iCloud sync carry over.
     private let dir = support.appendingPathComponent("Technoduck")
     private var backups: URL { dir.appendingPathComponent("Backups") }
     private let editDir = URL(fileURLWithPath: homeDir).appendingPathComponent("Library/Caches/Technoduck/Edit")
@@ -581,7 +582,7 @@ import UniformTypeIdentifiers
         p.directoryURL = libraryBackups; p.allowedContentTypes = [.json]; p.prompt = "Restore"
         p.message = "Pick a bookmarks backup. Your current bookmarks are replaced (and saved in today's backup if there isn't one yet)."
         guard p.runModal() == .OK, let u = p.url else { return }
-        guard let lib = try? JSONDecoder().decode(Library.self, from: Data(contentsOf: u)) else { message = "That file isn't a Technoduck bookmarks backup."; return }
+        guard let lib = try? JSONDecoder().decode(Library.self, from: Data(contentsOf: u)) else { message = "That file isn't a Techno Goose bookmarks backup."; return }
         bookmarks = lib.bookmarks; favorites = lib.favorites
         message = "Restored \(lib.bookmarks.count) bookmarks and \(lib.favorites.count) favorites."
     }
@@ -668,7 +669,7 @@ func bookmark(fromQuickConnect text: String) -> Bookmark {
     return b
 }
 
-/// A Cyberduck .duck bookmark (a plist) as a Technoduck bookmark; nil for protocols we don't speak (S3, Dropbox…).
+/// A Cyberduck .duck bookmark (a plist) as a Techno Goose bookmark; nil for protocols we don't speak (S3, Dropbox…).
 func bookmark(fromCyberduck d: [String: Any]) -> Bookmark? {
     let proto: Proto
     switch (d["Protocol"] as? String)?.lowercased() {
@@ -692,7 +693,7 @@ func bookmark(fromCyberduck d: [String: Any]) -> Bookmark? {
 
 extension Store {
     /// Adds Cyberduck's bookmarks, skipping ones already here. Passwords stay in Cyberduck's Keychain items;
-    /// Technoduck asks for each one on first connect.
+    /// Techno Goose asks for each one on first connect.
     func importCyberduck() {
         let fm = FileManager.default, home = fm.homeDirectoryForCurrentUser
         let folders = ["Library/Group Containers/G69SCX94XU.duck/Library/Application Support/duck/Bookmarks",
