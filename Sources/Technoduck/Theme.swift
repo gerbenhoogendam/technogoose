@@ -136,16 +136,14 @@ struct Eyebrow: View {
     }
 }
 
-/// The active pane: a hairline accent frame with a small square in each corner.
+/// The active pane: a hairline accent frame with a solid bar along the top.
 struct ActiveFrame: View {
     let color: Color
     var body: some View {
-        ZStack {
-            Rectangle().strokeBorder(color.opacity(0.55), lineWidth: 1).padding(3)
-            let corners: [Alignment] = [.topLeading, .topTrailing, .bottomLeading, .bottomTrailing]
-            ForEach(0..<4, id: \.self) { i in
-                Rectangle().fill(color).frame(width: 7, height: 7).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: corners[i])
-            }
+        // A solid bar on top, like a selected tab; corner squares looked like resize handles.
+        ZStack(alignment: .top) {
+            Rectangle().strokeBorder(color.opacity(0.55), lineWidth: 1)
+            Rectangle().fill(color).frame(height: 3)
         }
         .allowsHitTesting(false).accessibilityHidden(true)
     }
