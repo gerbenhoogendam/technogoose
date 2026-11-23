@@ -160,9 +160,10 @@ struct PaneView: View {
     @State private var newFolder = false
     @State private var folderName = ""
     @State private var confirmDelete = false
-    @State private var dropping = false
-    /// While a folder is dragged over the header: what dropping it does ("" until its name is known).
-    @State private var headerDrop: String?
+    /// While something is dragged over this pane: the drop zones it offers, and whether it hovers the Open one.
+    @State private var drag: DropZones?
+    @State private var overOpen = false
+    @State private var height: CGFloat = 400
 
     private var rows: [RemoteFile] { store.visible(pane.files).sorted(using: sort).sorted { $0.isDir && !$1.isDir } }
     private var isActive: Bool { store.active === pane }
@@ -175,26 +176,16 @@ struct PaneView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay { if store.theme.label && isActive && store.panes.count > 1 { ActiveFrame(color: store.theme.accent) } }
-        .overlay {
-            // Dropping on the files copies into this folder; the header (above) opens the folder instead.
-            if dropping && headerDrop == nil {
-                RoundedRectangle(cornerRadius: store.theme.corner(4)).strokeBorder(store.theme.accent, lineWidth: 3)
-                    .overlay(alignment: .bottom) {
-                        dropTag(pane.service == nil ? "Open here" : "Copy into \(pane.path == "/" ? pane.title : (pane.path as NSString).lastPathComponent)",
-                                pane.service == nil ? "folder" : "doc.on.doc").padding(.bottom, 14)
-                    }
-                    .allowsHitTesting(false)
-            }
-        }
-        .onDrop(of: [.fileURL, .utf8PlainText], isTargeted: $dropping) { providers in
+        .background(GeometryReader { g in Color.clear.onAppear { height = g.size.height }.onChange(of: g.size.height) { height = $1 } })
+        .overlay { if let drag { dropOverlay(drag) } }
+        .onDrop(of: [.fileURL, .utf8PlainText], delegate: PaneDrop(zones: $drag, overOpen: $overOpen, height: height, folder: folderName(pane)) { open, urls, refs in
             let target = pane
             Task {
-                let (urls, refs) = await loadDrop(providers)
-                if target.service == nil { await store.openFolders(urls, in: target) } else { await store.drop(urls: urls, into: target) }
+                if open { await store.openFolders(urls, in: target); return }
+                await store.drop(urls: urls, into: target)
                 await store.drop(refs: refs, into: target)
             }
-            return true
-        }
+        })
         .simultaneousGesture(TapGesture().onEnded { store.activeID = pane.id })
         .alert("New Folder", isPresented: $newFolder) {
             TextField("Name", text: $folderName)
@@ -280,20 +271,6 @@ struct PaneView: View {
         .themedFont(.callout)
         .padding(.horizontal, store.theme.label ? 12 : 10)
         .themeBackground(store.theme.bar, .bar)
-        .overlay {
-            if let name = headerDrop {
-                ZStack {
-                    Rectangle().fill(store.theme.accent.opacity(0.22))
-                    Rectangle().strokeBorder(store.theme.accent, lineWidth: 2)
-                    dropTag(name.isEmpty ? "Open the dropped folder here" : name, "folder.fill")
-                }
-                .allowsHitTesting(false)
-            }
-        }
-        .onDrop(of: [.fileURL], delegate: FolderDrop(label: $headerDrop, current: pane.service == nil ? nil : pane.path) { urls in
-            let target = pane
-            Task { await store.openFolders(urls, in: target) }
-        })
         .overlay(alignment: .top) {
             if isActive && !store.theme.label {
                 if store.theme == .mac512 { // the pinstripes of an active 1984 title bar
@@ -303,12 +280,38 @@ struct PaneView: View {
         }
     }
 
-    private func dropTag(_ text: String, _ symbol: String) -> some View {
-        Label(text, systemImage: symbol)
-            .themedFont(.callout.weight(.semibold)).lineLimit(1).truncationMode(.middle)
-            .padding(.horizontal, 12).padding(.vertical, 5)
-            .foregroundStyle(store.theme.label ? Color.black : .white)
-            .background(Capsule().fill(store.theme.accent))
+    /// The pane's folder name for the drop zones; nil for an empty pane.
+    private func folderName(_ p: Pane) -> String? {
+        p.service == nil ? nil : p.path == "/" ? p.title : (p.path as NSString).lastPathComponent
+    }
+
+    /// Two zones while something is dragged in: Open (top) and Copy (bottom), or just the one that applies.
+    @ViewBuilder private func dropOverlay(_ z: DropZones) -> some View {
+        let zones = [z.open.map { (true, $0) }, z.copy.map { (false, $0) }].compactMap { $0 }
+        if zones.isEmpty {
+            RoundedRectangle(cornerRadius: store.theme.corner(4)).strokeBorder(store.theme.accent, lineWidth: 3).allowsHitTesting(false)
+        } else {
+            VStack(spacing: 8) {
+                ForEach(zones, id: \.0) { isOpen, zone in
+                    let on = zones.count == 1 || overOpen == isOpen
+                    VStack(spacing: 8) {
+                        Image(systemName: isOpen ? "folder.fill" : "doc.on.doc.fill").font(.system(size: 30, weight: .semibold))
+                        Text(zone.title).themedFont(.title3.bold()).multilineTextAlignment(.center).lineLimit(2).truncationMode(.middle)
+                        Text(zone.detail).themedFont(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center).lineLimit(2)
+                    }
+                    .padding(16)
+                    .foregroundStyle(on ? store.theme.accent : .secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(RoundedRectangle(cornerRadius: store.theme.corner(12)).fill(store.theme.accent.opacity(on ? 0.22 : 0.06)))
+                    .overlay(RoundedRectangle(cornerRadius: store.theme.corner(12))
+                        .strokeBorder(store.theme.accent.opacity(on ? 1 : 0.45), style: StrokeStyle(lineWidth: on ? 3 : 1.5, dash: on ? [] : [7, 5])))
+                    .animation(.easeOut(duration: 0.12), value: on)
+                }
+            }
+            .padding(10)
+            .background((store.theme.bar ?? Color(nsColor: .windowBackgroundColor)))
+            .allowsHitTesting(false)
+        }
     }
 
     /// "Server — folder"; in Label Lime small spaced capitals, then the folder in condensed capitals.
@@ -415,32 +418,68 @@ struct PaneView: View {
     }
 }
 
-/// A folder dragged onto a pane's header: names what dropping does while it hovers, then opens it.
-struct FolderDrop: DropDelegate {
-    @Binding var label: String?
-    /// The pane's folder now, so the label can say what it replaces; nil for an empty pane.
-    let current: String?
-    let open: ([URL]) -> Void
+/// What a drag over a pane can do. A zone is nil when it doesn't apply.
+struct DropZones: Equatable {
+    struct Zone: Equatable { var title: String; var detail: String }
+    var open: Zone?
+    var copy: Zone?
+}
 
-    func validateDrop(info: DropInfo) -> Bool { info.hasItemsConforming(to: [.fileURL]) }
+/// Open: folders from Finder (or this Mac's panes) replace the pane's folder; two are compared side by side.
+/// Copy: anything dragged in is copied into the pane's folder. A dragged pane grip offers neither: it swaps panes.
+/// `folder` is the pane's folder name; nil for an empty pane, which can only open.
+func dropZones(urls: [URL], refs: [String], folder: String?) -> DropZones {
+    if refs.contains(where: { $0.hasPrefix("technoduck-pane:") }) { return DropZones() }
+    let isDir = { (u: URL) in (try? u.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
+    let dirs = urls.filter(isDir)
+    var z = DropZones()
+    if dirs.count >= 2 {
+        z.open = .init(title: "Compare “\(dirs[0].lastPathComponent)” with “\(dirs[1].lastPathComponent)”", detail: "Opens both side by side and shows what differs. Nothing is copied.")
+    } else if let d = dirs.first {
+        z.open = .init(title: "Open “\(d.lastPathComponent)”" + (folder.map { " instead of “\($0)”" } ?? " here"), detail: "This pane shows that folder. Nothing is copied.")
+    } else if folder == nil, let u = urls.first {
+        z.open = .init(title: "Open “\(u.deletingLastPathComponent().lastPathComponent)” here", detail: "The folder this file is in. Nothing is copied.")
+    }
+    let names = urls.map(\.lastPathComponent) + refs.filter { $0.hasPrefix("technoduck-item:") }.map { ($0 as NSString).lastPathComponent }
+    if let folder, !names.isEmpty {
+        z.copy = .init(title: "Copy to “\(folder)”", detail: (names.count == 1 ? "“\(names[0])” is" : "\(names.count) items are") + " copied into this folder.")
+    }
+    return z
+}
+
+/// Drops on a pane: the top half is Open, the bottom half Copy (when both apply). Names fill in once the drag is read.
+struct PaneDrop: DropDelegate {
+    @Binding var zones: DropZones?
+    @Binding var overOpen: Bool
+    let height: CGFloat
+    let folder: String?
+    let perform: (_ open: Bool, _ urls: [URL], _ refs: [String]) -> Void
+
+    func validateDrop(info: DropInfo) -> Bool { info.hasItemsConforming(to: [.fileURL, .utf8PlainText]) }
     func dropEntered(info: DropInfo) {
-        label = ""
-        let providers = info.itemProviders(for: [.fileURL])
+        // Until the names are read: Open for files from Finder, Copy when there's a folder to copy into.
+        zones = DropZones(open: info.hasItemsConforming(to: [.fileURL]) ? .init(title: folder.map { "Open the dragged folder instead of “\($0)”" } ?? "Open the dragged folder here", detail: "Nothing is copied.") : nil,
+                          copy: folder.map { .init(title: "Copy to “\($0)”", detail: "Copied into this folder.") })
+        let providers = info.itemProviders(for: [.fileURL, .utf8PlainText])
         Task { @MainActor in
-            let urls = await loadDrop(providers).urls
-            guard label != nil, let u = urls.first else { return }
-            let name = { (u: URL) in (try? u.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true ? u.lastPathComponent : u.deletingLastPathComponent().lastPathComponent }
-            if urls.count > 1 { label = "Compare “\(name(urls[0]))” with “\(name(urls[1]))”" }
-            else if let c = current { label = "Open “\(name(u))” here, instead of “\((c as NSString).lastPathComponent)”" }
-            else { label = "Open “\(name(u))” here" }
+            let (urls, refs) = await loadDrop(providers)
+            if zones != nil, !(urls.isEmpty && refs.isEmpty) { zones = dropZones(urls: urls, refs: refs, folder: folder) }
         }
     }
-    func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }
-    func dropExited(info: DropInfo) { label = nil }
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        overOpen = isOpen(info)
+        return DropProposal(operation: .copy)
+    }
+    func dropExited(info: DropInfo) { zones = nil }
+    private func isOpen(_ info: DropInfo) -> Bool {
+        guard let z = zones, z.open != nil else { return false }
+        return z.copy == nil || info.location.y < height / 2
+    }
     func performDrop(info: DropInfo) -> Bool {
-        label = nil
-        let providers = info.itemProviders(for: [.fileURL])
-        Task { @MainActor in open(await loadDrop(providers).urls) }
+        let open = isOpen(info)
+        zones = nil
+        let providers = info.itemProviders(for: [.fileURL, .utf8PlainText])
+        Task { @MainActor in let (urls, refs) = await loadDrop(providers); perform(open, urls, refs) }
         return true
     }
 }

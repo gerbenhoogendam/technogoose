@@ -158,6 +158,15 @@ func syncPlanSelfTest() {
     precondition(makePlan(local: l, remote: r, mode: .both, rules: SyncRules(conflict: .a)).contains { $0.rel == "b" && $0.to == .b })
     precondition(makePlan(local: l, remote: r, mode: .upload, rules: SyncRules(replace: .never)).map(\.rel) == ["d", "d/e"])
     precondition(!makePlan(local: l, remote: r, mode: .upload, rules: SyncRules(compare: .sizeOnly)).contains { $0.rel == "a" })
+    // Drop zones: a folder offers Open and Copy, a file only Copy, a pane grip neither; an empty pane only opens.
+    let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory()), file = tmpDir.appendingPathComponent("x.txt")
+    let z1 = dropZones(urls: [tmpDir], refs: [], folder: "public_html")
+    precondition(z1.open?.title == "Open “\(tmpDir.lastPathComponent)” instead of “public_html”" && z1.copy?.title == "Copy to “public_html”", "\(z1)")
+    precondition(dropZones(urls: [file], refs: [], folder: "site").open == nil)
+    precondition(dropZones(urls: [], refs: ["technoduck-pane:x"], folder: "site") == DropZones())
+    precondition(dropZones(urls: [tmpDir], refs: [], folder: nil).copy == nil)
+    precondition(dropZones(urls: [tmpDir, tmpDir], refs: [], folder: "a").open?.title.hasPrefix("Compare") == true)
+    precondition(dropZones(urls: [], refs: ["technoduck-item:id:/srv/logo.svg"], folder: "a").copy?.detail == "“logo.svg” is copied into this folder.")
     // Comparison rows: every file, folders only where one side lacks them; then choices per file.
     let rows = compareRows(l, r, skipped: [SkippedFile(rel: "same", why: sameContents)])
     let st = Dictionary(uniqueKeysWithValues: rows.map { ($0.rel, $0.status) })
