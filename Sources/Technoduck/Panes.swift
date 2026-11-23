@@ -161,6 +161,8 @@ struct PaneView: View {
     @State private var folderName = ""
     @State private var confirmDelete = false
     @State private var dropping = false
+    /// While a folder is dragged over the header: what dropping it does ("" until its name is known).
+    @State private var headerDrop: String?
 
     private var rows: [RemoteFile] { store.visible(pane.files).sorted(using: sort).sorted { $0.isDir && !$1.isDir } }
     private var isActive: Bool { store.active === pane }
@@ -173,10 +175,24 @@ struct PaneView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay { if store.theme.label && isActive && store.panes.count > 1 { ActiveFrame(color: store.theme.accent) } }
-        .overlay { if dropping { RoundedRectangle(cornerRadius: store.theme.corner(4)).strokeBorder(store.theme.accent, lineWidth: 3).allowsHitTesting(false) } }
+        .overlay {
+            // Dropping on the files copies into this folder; the header (above) opens the folder instead.
+            if dropping && headerDrop == nil {
+                RoundedRectangle(cornerRadius: store.theme.corner(4)).strokeBorder(store.theme.accent, lineWidth: 3)
+                    .overlay(alignment: .bottom) {
+                        dropTag(pane.service == nil ? "Open here" : "Copy into \(pane.path == "/" ? pane.title : (pane.path as NSString).lastPathComponent)",
+                                pane.service == nil ? "folder" : "doc.on.doc").padding(.bottom, 14)
+                    }
+                    .allowsHitTesting(false)
+            }
+        }
         .onDrop(of: [.fileURL, .utf8PlainText], isTargeted: $dropping) { providers in
             let target = pane
-            Task { let (urls, refs) = await loadDrop(providers); await store.drop(urls: urls, into: target); await store.drop(refs: refs, into: target) }
+            Task {
+                let (urls, refs) = await loadDrop(providers)
+                if target.service == nil { await store.openFolders(urls, in: target) } else { await store.drop(urls: urls, into: target) }
+                await store.drop(refs: refs, into: target)
+            }
             return true
         }
         .simultaneousGesture(TapGesture().onEnded { store.activeID = pane.id })
@@ -264,6 +280,20 @@ struct PaneView: View {
         .themedFont(.callout)
         .padding(.horizontal, store.theme.label ? 12 : 10)
         .themeBackground(store.theme.bar, .bar)
+        .overlay {
+            if let name = headerDrop {
+                ZStack {
+                    Rectangle().fill(store.theme.accent.opacity(0.22))
+                    Rectangle().strokeBorder(store.theme.accent, lineWidth: 2)
+                    dropTag(name.isEmpty ? "Open the dropped folder here" : name, "folder.fill")
+                }
+                .allowsHitTesting(false)
+            }
+        }
+        .onDrop(of: [.fileURL], delegate: FolderDrop(label: $headerDrop, current: pane.service == nil ? nil : pane.path) { urls in
+            let target = pane
+            Task { await store.openFolders(urls, in: target) }
+        })
         .overlay(alignment: .top) {
             if isActive && !store.theme.label {
                 if store.theme == .mac512 { // the pinstripes of an active 1984 title bar
@@ -271,6 +301,14 @@ struct PaneView: View {
                 } else { Rectangle().fill(store.theme.gradient).frame(height: 2) }
             }
         }
+    }
+
+    private func dropTag(_ text: String, _ symbol: String) -> some View {
+        Label(text, systemImage: symbol)
+            .themedFont(.callout.weight(.semibold)).lineLimit(1).truncationMode(.middle)
+            .padding(.horizontal, 12).padding(.vertical, 5)
+            .foregroundStyle(store.theme.label ? Color.black : .white)
+            .background(Capsule().fill(store.theme.accent))
     }
 
     /// "Server — folder"; in Label Lime small spaced capitals, then the folder in condensed capitals.
@@ -374,6 +412,36 @@ struct PaneView: View {
         guard let c = pane.bookmark else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(items.map { c.url($0.path) }.joined(separator: "\n"), forType: .string)
+    }
+}
+
+/// A folder dragged onto a pane's header: names what dropping does while it hovers, then opens it.
+struct FolderDrop: DropDelegate {
+    @Binding var label: String?
+    /// The pane's folder now, so the label can say what it replaces; nil for an empty pane.
+    let current: String?
+    let open: ([URL]) -> Void
+
+    func validateDrop(info: DropInfo) -> Bool { info.hasItemsConforming(to: [.fileURL]) }
+    func dropEntered(info: DropInfo) {
+        label = ""
+        let providers = info.itemProviders(for: [.fileURL])
+        Task { @MainActor in
+            let urls = await loadDrop(providers).urls
+            guard label != nil, let u = urls.first else { return }
+            let name = { (u: URL) in (try? u.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true ? u.lastPathComponent : u.deletingLastPathComponent().lastPathComponent }
+            if urls.count > 1 { label = "Compare “\(name(urls[0]))” with “\(name(urls[1]))”" }
+            else if let c = current { label = "Open “\(name(u))” here, instead of “\((c as NSString).lastPathComponent)”" }
+            else { label = "Open “\(name(u))” here" }
+        }
+    }
+    func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }
+    func dropExited(info: DropInfo) { label = nil }
+    func performDrop(info: DropInfo) -> Bool {
+        label = nil
+        let providers = info.itemProviders(for: [.fileURL])
+        Task { @MainActor in open(await loadDrop(providers).urls) }
+        return true
     }
 }
 

@@ -260,7 +260,7 @@ struct FileCompareView: View {
                 Label("\(src.place) · \(src.name)", systemImage: "doc.on.doc")
                 Image(systemName: "arrow.right").foregroundStyle(store.theme.accent)
                 Label("\(dst.place) · \(dst.name)", systemImage: op.overwrite ? "arrow.triangle.2.circlepath" : "plus.circle")
-                Text(op.overwrite ? "gets this version; the current one is backed up first" : "gets this new file")
+                Text(op.reason == SyncOp.notCopied ? "would get this version, but it is left alone" : op.overwrite ? "gets this version; the current one is backed up first" : "gets this new file")
                     .foregroundStyle(.secondary)
             }
             .themedFont(.callout).lineLimit(1)

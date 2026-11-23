@@ -108,6 +108,68 @@ func planSync(local: [String: RemoteFile], remote: [String: RemoteFile], mode: S
     return (ops, skipped)
 }
 
+/// One path in a comparison of two folders: what is on each side and how they differ.
+struct CompareRow: Identifiable, Hashable {
+    enum Status: Hashable { case same, onlyA, onlyB, newerA, newerB, differs }
+    var rel: String
+    var a: RemoteFile?
+    var b: RemoteFile?
+    var status: Status
+    /// Why the rules leave it alone, when they do.
+    var why: String?
+    var id: String { rel }
+    var isDir: Bool { (a ?? b)?.isDir ?? false }
+}
+
+/// Every file on either side, plus folders that exist on one side only. Folders on both sides aren't listed: their files are.
+func compareRows(_ a: [String: RemoteFile], _ b: [String: RemoteFile], skipped: [SkippedFile]) -> [CompareRow] {
+    let why = Dictionary(skipped.map { ($0.rel, $0.why) }, uniquingKeysWith: { x, _ in x })
+    func date(_ f: RemoteFile) -> Date { f.modified ?? .distantPast }
+    return Set(a.keys).union(b.keys).sorted().compactMap { rel in
+        let l = a[rel], r = b[rel]
+        guard let l, let r else { return CompareRow(rel: rel, a: l, b: r, status: l == nil ? .onlyB : .onlyA, why: why[rel]) }
+        if l.isDir && r.isDir { return nil }
+        let newerA = date(l) > date(r).addingTimeInterval(60), newerB = date(r) > date(l).addingTimeInterval(60)
+        let status: CompareRow.Status
+        if l.isDir != r.isDir { status = .differs }
+        else if why[rel] == sameContents { status = .same }
+        else if newerA { status = .newerA } else if newerB { status = .newerB }
+        else { status = l.size == r.size ? .same : .differs }
+        return CompareRow(rel: rel, a: l, b: r, status: status, why: why[rel])
+    }
+}
+let sameContents = "Same contents, only the date differs"
+
+/// The plan with the choices made in the preview: `side` says where each row's file goes (nil: left alone).
+/// Steps the rules already planned are kept as they are; a folder a file needs on the other side is created first.
+func applyChoices(_ rows: [CompareRow], _ planned: [SyncOp], side: (CompareRow) -> Side?) -> [SyncOp] {
+    let byRel = Dictionary(planned.map { ($0.rel, $0) }, uniquingKeysWith: { x, _ in x })
+    var out: [SyncOp] = []
+    for r in rows {
+        guard let to = side(r) else { continue }
+        if let op = byRel[r.rel], op.to == to { out.append(op); continue }
+        guard let src = to == .b ? r.a : r.b else { continue }
+        let dst = to == .b ? r.b : r.a
+        if src.isDir { if dst == nil { out.append(SyncOp(to: to, rel: r.rel, isDir: true, reason: "New folder")) }; continue }
+        let replacesNewer = dst.map { ($0.modified ?? .distantPast) > (src.modified ?? .distantPast).addingTimeInterval(60) } ?? false
+        out.append(SyncOp(to: to, rel: r.rel, size: src.size, modified: src.modified, overwrite: dst != nil,
+                          reason: "Your choice", warning: replacesNewer ? "The file it replaces is newer" : nil))
+    }
+    let missing: [Side: Set<String>] = [.a: Set(rows.filter { $0.isDir && $0.a == nil }.map(\.rel)),
+                                        .b: Set(rows.filter { $0.isDir && $0.b == nil }.map(\.rel))]
+    var have = Set(out.filter(\.isDir).map { "\($0.to.rawValue):\($0.rel)" })
+    for op in out {
+        var parent = (op.rel as NSString).deletingLastPathComponent
+        while !parent.isEmpty {
+            if missing[op.to]!.contains(parent), have.insert("\(op.to.rawValue):\(parent)").inserted {
+                out.append(SyncOp(to: op.to, rel: parent, isDir: true, reason: "New folder"))
+            }
+            parent = (parent as NSString).deletingLastPathComponent
+        }
+    }
+    return out.sorted { $0.rel < $1.rel }  // a folder always before what goes in it
+}
+
 /// Applies and undoes single steps between any two locations. Every file that gets replaced is saved under `backups` first.
 struct SyncEngine {
     let a: FileService, b: FileService

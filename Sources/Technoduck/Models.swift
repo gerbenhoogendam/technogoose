@@ -172,6 +172,8 @@ struct SyncOp: Codable, Hashable, Identifiable {
     var reason = ""
     /// Set when this replaces something the user may want to keep, e.g. a newer file.
     var warning: String? = nil
+    /// The reason of an op made only to look at a file the sync leaves alone.
+    static let notCopied = "Not copied"
 }
 
 struct SyncPlan: Identifiable {
@@ -185,6 +187,8 @@ struct SyncPlan: Identifiable {
     var kind = Activity.sync
     /// Files that differ but that the rules leave alone.
     var skipped: [SkippedFile] = []
+    /// Everything compared, for the preview; empty for syncs that run without one.
+    var rows: [CompareRow] = []
     func files(to s: Side) -> [SyncOp] { ops.filter { $0.to == s && !$0.isDir } }
     func bytes(to s: Side) -> Int64 { files(to: s).reduce(0) { $0 + $1.size } }
     var summary: String {

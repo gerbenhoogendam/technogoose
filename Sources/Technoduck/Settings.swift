@@ -87,33 +87,20 @@ private struct Swatch: View {
     }
 }
 
-/// The Dock icons to choose from. The .app's own icon (Resources/AppIcon.png) is `goggles`.
+/// The Dock icons to choose from. The .app's own icon (Resources/AppIcon.png) is `twinLens`.
 enum AppIcon: String, CaseIterable, Identifiable {
-    case goggles, deepSync = "deep-sync", pixel, redAlert = "red-alert", lime, copper, chrome, wavelength, ledVisor = "led-visor", frost
+    case twinLens = "twin-lens", acid, chrome, club, glass, glitch, industrial, orbit, oscilloscope, synth
     var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .goggles: "Goggles"
-        case .deepSync: "Deep Sync"
-        case .pixel: "Pixel"
-        case .redAlert: "Red Alert"
-        case .lime: "Label Lime"
-        case .copper: "Copper"
-        case .chrome: "Chrome"
-        case .wavelength: "Wavelength"
-        case .ledVisor: "LED Visor"
-        case .frost: "Frost"
-        }
-    }
+    var title: String { self == .twinLens ? "Twin Lens" : rawValue.capitalized }
     private static let images = Dictionary(uniqueKeysWithValues: allCases.compactMap { i in
         NSImage(contentsOf: resourceURL(i.rawValue, "png", in: "Icons")).map { (i, $0) }
     })
     var image: NSImage? { Self.images[self] }
     /// Shows this icon in the Dock and the app switcher while Techno Goose runs; nil brings back the .app's own icon.
-    @MainActor func apply() { NSApp.applicationIconImage = self == .goggles ? nil : image }
+    @MainActor func apply() { NSApp.applicationIconImage = self == .twinLens ? nil : image }
 }
 
-/// Settings › Icon: a grid of ducks.
+/// Settings › Icon: a grid of geese.
 private struct IconPicker: View {
     @Environment(Store.self) private var store
     var body: some View {
@@ -138,7 +125,7 @@ private struct IconPicker: View {
                         .accessibilityAddTraits(on ? .isSelected : [])
                     }
                 }
-                Text("The icon in the Dock and the app switcher while Techno Goose runs. Finder and a closed Dock icon keep Goggles.")
+                Text("The icon in the Dock and the app switcher while Techno Goose runs. Finder and a closed Dock icon keep Twin Lens.")
                     .themedFont(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             .padding(20)

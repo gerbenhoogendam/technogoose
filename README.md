@@ -15,7 +15,8 @@ A native macOS file-transfer client written in Swift and SwiftUI, with a local f
 ## Features
 
 - **Up to four browsers:** each pane shows your Mac or any server. Drag the dividers to resize, drag a pane's ≡ grip to move it, and drag files between panes or in from Finder. With two panes, View › Two Panes Top and Bottom (⌥⌘D) stacks them.
-- **Sync between any two neighbouring panes:** pick To right, To left or Both ways in the strip between the panes, then Preview Sync. The preview shows which folder changes and which stays as it is, and every file that would be copied; nothing moves until you click Sync there.
+- **Sync between any two neighbouring panes:** pick To right, To left or Both ways in the strip between the panes, then Preview Sync. The preview compares both folders file by file: what differs, what exists on one side only and (if you want) what is the same, with size and date on each side. Every file shows what happens to it, and you can send it the other way or leave it alone, per file or for a selection. Nothing moves until you click Sync there.
+- **Open folders by dragging:** drop a folder from Finder on a pane's header to open it there; drop two to open them side by side and compare them. Also from Finder › Services › Open in Techno Goose, or `open -a "Techno Goose" folder1 folder2` in Terminal. Dropping on the file list still copies into that folder.
 - **See what changes inside a file:** in the preview, Space or double-click opens a comparison of the file that arrives against the one it replaces. Text (HTML, CSS, JS, PHP, JSON, SVG, XML, Markdown, CSV and so on, minified or not) shows the changed lines and words; images (JPEG, PNG, GIF, WebP, AVIF, HEIC, ICO, BMP, TIFF) and PDF pages get a pixel diff in magenta; a PDF's text is compared page by page; fonts show their names and a sample line; video and audio show length, size, a frame or a waveform; ZIP and TAR archives list what's inside. Anything else is compared byte by byte.
 - **Sync rules:** what counts as changed (size, or size and date) and which version wins: replace, only when newer, or only add new files; for both ways the newest, the left, the right or neither. A file that only has a newer date is checked byte for byte first, so identical files are left alone.
 - **Copy across:** select files and click Copy in the strip between the panes, or drag them. A copy that would replace files shows the same preview first.
@@ -24,7 +25,7 @@ A native macOS file-transfer client written in Swift and SwiftUI, with a local f
 - **Folder sizes:** every folder's total size is worked out in the background.
 - **Hidden files:** View › Show Hidden Files (⇧⌘.).
 - **Themes:** View › Theme › Nova Midnight, Nova Daylight or Neon Pond, after Panic's Nova editor, Macintosh 512K in greyscale and Chicago, or Label Lime: near-black, square corners and chartreuse, with paths and numbers in Bebas Neue.
-- **Settings (⌘,):** theme, one of ten duck icons for the Dock, hidden files, folder sizes on or off, whether Activity opens when a transfer starts, a sound when a sync finishes, how many syncs can be undone (and clearing those backups), and iCloud bookmarks.
+- **Settings (⌘,):** theme, one of ten goose icons for the Dock, hidden files, folder sizes on or off, whether Activity opens when a transfer starts, a sound when a sync finishes, how many syncs can be undone (and clearing those backups), and iCloud bookmarks.
 - **Excludes:** per bookmark, e.g. `node_modules, .git, *.log`.
 - **Folder pairs and auto-upload:** each bookmark remembers its local and server folders, and can upload changes as soon as you save.
 - **Favorites:** any folder, on your Mac or a server, can be pinned in the sidebar.

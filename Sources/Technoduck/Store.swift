@@ -103,7 +103,7 @@ import UniformTypeIdentifiers
     var doneSound = UserDefaults.standard.bool(forKey: "doneSound") { didSet { UserDefaults.standard.set(doneSound, forKey: "doneSound") } }
     /// How many syncs and copies can be undone; older backups are deleted.
     var undoLimit = UserDefaults.standard.object(forKey: "undoLimit") as? Int ?? 30 { didSet { UserDefaults.standard.set(undoLimit, forKey: "undoLimit") } }
-    var appIcon = AppIcon(rawValue: UserDefaults.standard.string(forKey: "appIcon") ?? "") ?? .goggles {
+    var appIcon = AppIcon(rawValue: UserDefaults.standard.string(forKey: "appIcon") ?? "") ?? .twinLens {
         didSet { UserDefaults.standard.set(appIcon.rawValue, forKey: "appIcon"); appIcon.apply() }
     }
 
@@ -268,10 +268,33 @@ import UniformTypeIdentifiers
             message = ""
             let p = SyncPlan(mode: .upload, a: src, b: dst, ops: makePlan(local: a, remote: b, mode: .upload, force: true),
                              title: "Copied " + (items.count == 1 ? items[0].name : "\(items.count) items") + " to \(dest.title)",
-                             kind: dst.service is LocalService ? .download : .upload)
+                             kind: dst.service is LocalService ? .download : .upload,
+                             rows: compareRows(a, b, skipped: []).filter { $0.a != nil })  // only what is being copied
             // Replacing files: show what first. Only new files: just copy, the status bar offers Undo.
             if p.ops.contains(where: \.overwrite) { planPanes = nil; plan = p } else { await run(p, title: p.title!, kind: p.kind) }
         } catch { message = "Copy failed: \(error.localizedDescription)" }
+    }
+
+    /// Folders from Finder (dropped on a pane's header, the Services menu, or `open -a "Techno Goose" a b`).
+    /// One opens in `pane` (or the active one); two open side by side and are compared. A file opens its folder.
+    func openFolders(_ urls: [URL], in pane: Pane? = nil) async {
+        let dirs = urls.filter(\.isFileURL).prefix(2).map { u in
+            (try? u.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true ? u.path : u.deletingLastPathComponent().path
+        }
+        guard let first = dirs.first else { return }
+        let target = pane ?? active ?? panes[0]
+        guard dirs.count == 2 else {
+            await openLocal(in: target, at: first)
+            message = "Opened \((first as NSString).lastPathComponent) in this pane"
+            return
+        }
+        if panes.count < 2 { addPane() }
+        let i = panes.firstIndex { $0 === target } ?? 0
+        let (l, r) = i + 1 < panes.count ? (panes[i], panes[i + 1]) : (panes[i - 1], panes[i])
+        await openLocal(in: l, at: dirs[0])
+        await openLocal(in: r, at: dirs[1])
+        let mode = SyncMode(rawValue: UserDefaults.standard.string(forKey: "syncMode") ?? "") ?? .upload
+        await sync(mode, l, r, dryRun: true)
     }
 
     /// Files dropped from Finder or from a pane showing this Mac.
@@ -323,6 +346,7 @@ import UniformTypeIdentifiers
             var p = SyncPlan(mode: mode, a: a, b: b, ops: ops, skipped: skipped)
             message = ""
             if dryRun {
+                p.rows = compareRows(lw.files, rw.files, skipped: skipped)
                 if let open = plan, open.title == nil { p.id = open.id }  // a new direction in an open preview updates it in place
                 plan = p
             }
@@ -344,7 +368,7 @@ import UniformTypeIdentifiers
         }
         message = ""
         return (ops.filter { !same.contains($0.id) },
-                skipped + ops.filter { same.contains($0.id) }.map { SkippedFile(rel: $0.rel, why: "Same contents, only the date differs") })
+                skipped + ops.filter { same.contains($0.id) }.map { SkippedFile(rel: $0.rel, why: sameContents) })
     }
 
     /// `undoable` false skips the backups of replaced files (for backup snapshots).
@@ -737,6 +761,8 @@ extension Store {
             addPane(); await openLocal(in: panes[3], at: homeDir + "/Backups")
         case "dryrun":
             await sync(.upload, panes[0], panes[1], dryRun: true)
+        case "folders":  // two folders opened at once, as from Finder
+            await openFolders([URL(fileURLWithPath: homeDir + "/Sites/duckpond"), URL(fileURLWithPath: homeDir + "/Backups/Duckpond Live/2026-11-20 21.00.00")], in: panes[0])
         case "timeline":
             await sync(.upload, panes[0], panes[1], dryRun: false)
             showInspector = true; inspectorTab = .timeline

@@ -32,11 +32,23 @@ cat > "$APP"/Contents/Info.plist <<PLIST
 <key>CFBundleExecutable</key><string>Technoduck</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.4.1</string>
-<key>CFBundleVersion</key><string>6</string>
+<key>CFBundleShortVersionString</key><string>1.5</string>
+<key>CFBundleVersion</key><string>7</string>
 <key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSHighResolutionCapable</key><true/>
+<key>CFBundleDocumentTypes</key><array><dict>
+  <key>CFBundleTypeName</key><string>Folder</string>
+  <key>CFBundleTypeRole</key><string>Viewer</string>
+  <key>LSHandlerRank</key><string>None</string>
+  <key>LSItemContentTypes</key><array><string>public.folder</string></array>
+</dict></array>
+<key>NSServices</key><array><dict>
+  <key>NSMenuItem</key><dict><key>default</key><string>Open in Techno Goose</string></dict>
+  <key>NSMessage</key><string>openFolders</string>
+  <key>NSRequiredContext</key><dict/>
+  <key>NSSendFileTypes</key><array><string>public.folder</string></array>
+</dict></array>
 </dict></plist>
 PLIST
 if [ -n "$SIGN" ]; then

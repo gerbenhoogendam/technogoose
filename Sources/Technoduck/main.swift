@@ -13,6 +13,7 @@ let shotPath: String? = CommandLine.arguments.firstIndex(of: "--screenshot").fla
 
     func applicationDidFinishLaunching(_ note: Notification) {
         store.appIcon.apply()
+        NSApp.servicesProvider = self
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1400, height: 820),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.contentView = NSHostingView(rootView: RootView().environment(store))
@@ -49,6 +50,18 @@ let shotPath: String? = CommandLine.arguments.firstIndex(of: "--screenshot").fla
         }
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ app: NSApplication) -> Bool { true }
+
+    /// `open -a "Techno Goose" folder [folder]`, or folders dropped on the Dock icon.
+    func application(_ app: NSApplication, open urls: [URL]) {
+        guard shotPath == nil else { return }  // the screenshot's own path isn't a folder to open
+        Task { await store.openFolders(urls) }
+    }
+    /// Finder › Services › Open in Techno Goose (NSServices in Info.plist): one folder opens, two are compared.
+    @objc func openFolders(_ pb: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString?>) {
+        let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        window.makeKeyAndOrderFront(nil); NSApp.activate()
+        Task { await store.openFolders(urls) }
+    }
 
     @objc func toggleHidden(_ sender: Any?) { store.showHidden.toggle() }
     @objc func showSettings(_ sender: Any?) {
@@ -145,6 +158,18 @@ func syncPlanSelfTest() {
     precondition(makePlan(local: l, remote: r, mode: .both, rules: SyncRules(conflict: .a)).contains { $0.rel == "b" && $0.to == .b })
     precondition(makePlan(local: l, remote: r, mode: .upload, rules: SyncRules(replace: .never)).map(\.rel) == ["d", "d/e"])
     precondition(!makePlan(local: l, remote: r, mode: .upload, rules: SyncRules(compare: .sizeOnly)).contains { $0.rel == "a" })
+    // Comparison rows: every file, folders only where one side lacks them; then choices per file.
+    let rows = compareRows(l, r, skipped: [SkippedFile(rel: "same", why: sameContents)])
+    let st = Dictionary(uniqueKeysWithValues: rows.map { ($0.rel, $0.status) })
+    precondition(st == ["a": .newerA, "b": .newerB, "same": .same, "d": .onlyA, "d/e": .onlyA, "r": .onlyB], "\(st)")
+    let planned = makePlan(local: l, remote: r, mode: .upload)
+    precondition(applyChoices(rows, planned) { r in planned.first { $0.rel == r.rel }?.to }.map(\.id) == planned.map(\.id))
+    // Send "b" back left, keep "a" here, and copy only "d/e": its folder "d" comes along.
+    let mine: [String: Side] = ["b": .a, "d/e": .b, "r": .a]
+    let chosen = applyChoices(rows, planned) { mine[$0.rel] }.map { "\($0.rel)>\($0.to.rawValue)\($0.overwrite ? "!" : "")" }
+    precondition(chosen == ["b>local!", "d>remote", "d/e>remote", "r>local"], "\(chosen)")
+    precondition(applyChoices(rows, planned) { $0.rel == "a" ? .a : nil }.first?.warning != nil)  // the older right "a" over the newer left one
+    precondition(applyChoices(rows, planned) { $0.rel == "r" ? .a : nil }.first?.warning == nil)  // a new file replaces nothing
     // Diff: lines, words inside an edited line, and unchanged runs folded away.
     let d = diffText("one\ntwo\nthree\n", "one\n2\nthree\nfour\n")
     precondition(d.lines.map(\.kind) == [.same, .removed, .added, .same, .added, .same] && d.added == 2 && d.removed == 1)
